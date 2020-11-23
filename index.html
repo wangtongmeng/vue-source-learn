@@ -1,19 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
 </head>
+
 <body>
     <script src="./dist/umd/vue.js"></script>
     <script>
         let vm = new Vue({
             el: '#app',
-            data: {
-                name: 'zhangsan'
-            }
+            data() {
+                return {
+                    name: 'zhangsan',
+                    age: 18,
+                    address: {
+                        number: 0,
+                        name: 'xxx'
+                    }
+                }
+            },
+            computed() {},
+            watch() {}
         })
+        vm._data.name = 'lisi' // 修改数据
+        console.log(vm._data)
+
+        vm._data.address = {
+            a: 1
+        } // 修改数据，且值是对象
+        console.log(vm._data)
     </script>
 </body>
+
 </html>
