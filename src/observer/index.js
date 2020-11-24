@@ -1,11 +1,34 @@
 import {
-    isObject
+    arrayMethods
+
+} from './array.js'
+import {
+    isObject,
+    def
 } from '../util/index'
 
 class Observer {
-    constructor (value) {
+    constructor(value) {
         // vue 如果数据的层次过多 需要递归的解析对象中的属性，依次增加set和get方法
-        this.walk(value)
+        // value.__ob__ = this // 我给每一个监控过的对象都增加一个__ob__属性，由于__ob__也是对象所以会递归观测，导致observerArray重复调用，造成死循环
+        def(value, '__ob__', this)
+
+        if (Array.isArray(value)) {
+            // 如果数组的话并不会对索引进行观测 因为会导致性能问题
+            // 前端开发很少会操作索引 一般会使用 push shift unshift...
+
+            // 重写数组方法
+            value.__proto__ = arrayMethods
+            // 如果数组里放的是对象再进行监控
+            this.observerArray(value)
+        } else {
+            this.walk(value)
+        }
+    }
+    observerArray(value) {
+        value.forEach(item => {
+            observe(item)
+        })
     }
     walk(data) {
         let keys = Object.keys(data)
@@ -21,19 +44,20 @@ function defineReactive(data, key, value) {
         get() { // 获取值时做一些操作
             return value
         },
-        set(newValue){ // 设置值时也可以做一些操作
+        set(newValue) { // 设置值时也可以做一些操作
+            console.log('更新')
             if (newValue === value) return
             observe(newValue) // 继续劫持用户设置的值，因为有可能用户设置的值是一个对象
             value = newValue
         }
     })
-    
+
 }
 
 export function observe(data) {
     let isObj = isObject(data)
     if (!isObj) return
-    
+
     return new Observer(data) // 用来观测数据
 
 }
