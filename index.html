@@ -8,20 +8,23 @@
 </head>
 
 <body>
+    <div id="app">
+        <p>{{name}}</p>
+        <span>{{age}}</span>
+    </div>
     <script src="./dist/umd/vue.js"></script>
     <script>
         let vm = new Vue({
             el: '#app',
             data() {
                 return {
-                    name: [{a:1},{b:2}]
+                    name: 'zhangsan',
+                    age: 11
                 }
             },
             computed() {},
             watch() {}
         })
-        vm._data.name.push({c: 3})
-        console.log(vm._data.name)
     </script>
 </body>
 
