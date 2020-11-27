@@ -10,8 +10,74 @@ const attribute = /^\s*([^\s"'<>\/=]+)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s
 const startTagClose = /^\s*(\/?)>/ // 匹配标签结束的 <div> <div />
 const defaultTagRE = /\{\{((?:.|\r?\n)+?)\}\}/g
 
+
+function start (tagName, attrs) {
+    console.log('开始标签是', tagName, '属性是', attrs)
+}
+function end(tagName) {
+    // 复杂节点这里没有处理，例如注释、doctype节点，只处理核心逻辑
+    console.log('结束标签', tagName)
+}
+function chars(text) {
+    console.log('文本', text)
+}
+function parseHTML(html) {
+    // 不停地解析html字符串(截取)
+    while (html) {
+        let textEnd = html.indexOf('<')
+        if (textEnd == 0) {
+            // 如果当前索引为0 肯定是一个标签 开始标签 结束标签
+            let startTagMatch = parseStartTag() // 获取tagName,attrs
+            if (startTagMatch) {
+                start(startTagMatch.tagName, startTagMatch.attrs)
+                continue // 如果开始标签匹配完毕后 继续下一次匹配
+            }
+            let endTagMatch = html.match(endTag)
+            if (endTagMatch) {
+                advance(endTagMatch[0].length)
+                end(endTagMatch[1])
+                continue
+            }
+        }
+        let text
+        if (textEnd >=0) {
+            text = html.substring(0, textEnd)
+        }
+        if (text){
+            advance(text.length)
+            chars(text)
+        }
+    }
+    function advance(n) {
+        html = html.substring(n)
+    }
+    function parseStartTag() {
+        let start = html.match(startTagOpen)
+        if (start) {
+            const match = {
+                tagName: start[1],
+                attrs: []
+            }
+            advance(start[0].length) // 删除标签
+            let end,attr
+            while(!(end = html.match(startTagClose)) && (attr = html.match(attribute))) {
+                // 解析属性
+                advance(attr[0].length) // 删除属性
+                match.attrs.push({
+                    name: attr[1],
+                    value: attr[3] || attr[4] || attr[5]
+                })
+            }
+            if (end) { // 去掉开始标签的 >
+                advance(end[0].length)
+                return match
+            }
+        }
+    }
+}
+
 export function compileToFunction(template) {
-    console.log(template)
+    let root = parseHTML(template)
     return function render() {
 
     }
