@@ -188,8 +188,6 @@
     observe(data); // 响应式处理
   }
 
-  // ast语法树 是用对象来描述原生语法的
-  // 虚拟dom 是用对象来描述dom节点的
   // ?: 匹配不捕获
   // arguments[0] = 匹配到的标签 arguments[1] 匹配到的标签名字
   var ncname = "[a-zA-Z_][\\-\\.0-9_a-zA-Z]*"; // abc-aaa
@@ -203,18 +201,62 @@
   var attribute = /^\s*([^\s"'<>\/=]+)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/; // 匹配属性
 
   var startTagClose = /^\s*(\/?)>/; // 匹配标签结束的 <div> <div />
+  var root = null; // ast语法树的树根
+
+  var currentParent; // 标识当前父亲是谁
+
+  var stack = []; // <div><p><span></span></p></div>
+  // [div] => [div, p] => [div, p, span] => [div, p] => [div] => [] => 空 开始标签与结束标签匹配
+
+  var ELEMENT_TYPE = 1;
+  var TEXT_TYPE = 3;
+
+  function createASTElement(tagName, attrs) {
+    return {
+      tag: tagName,
+      type: ELEMENT_TYPE,
+      children: [],
+      attrs: attrs,
+      parent: null
+    };
+  }
 
   function start(tagName, attrs) {
-    console.log('开始标签是', tagName, '属性是', attrs);
-  }
+    // 遇到开始标签 就创建一个ast元素
+    var element = createASTElement(tagName, attrs);
+
+    if (!root) {
+      root = element;
+    }
+
+    currentParent = element; // 把当前元素标记成父ast树
+
+    stack.push(element); // 将开始元素存放到栈中
+  } // <div><p></p></div> [div, p] => [div] p
+
 
   function end(tagName) {
     // 复杂节点这里没有处理，例如注释、doctype节点，只处理核心逻辑
-    console.log('结束标签', tagName);
+    var element = stack.pop(); // 拿到的是ast对象
+    // 标识当前p的父亲是div
+
+    currentParent = stack[stack.length - 1];
+
+    if (currentParent) {
+      element.parent = currentParent;
+      currentParent.children.push(element); // 实现一个树的父子关系
+    }
   }
 
   function chars(text) {
-    console.log('文本', text);
+    text = text.replace(/\s/g, '');
+
+    if (text) {
+      currentParent.children.push({
+        text: text,
+        type: TEXT_TYPE
+      });
+    }
   }
 
   function parseHTML(html) {
@@ -227,7 +269,8 @@
         var startTagMatch = parseStartTag(); // 获取tagName,attrs
 
         if (startTagMatch) {
-          start(startTagMatch.tagName, startTagMatch.attrs);
+          start(startTagMatch.tagName, startTagMatch.attrs); // 1 解析开始标签
+
           continue; // 如果开始标签匹配完毕后 继续下一次匹配
         }
 
@@ -235,7 +278,8 @@
 
         if (endTagMatch) {
           advance(endTagMatch[0].length);
-          end(endTagMatch[1]);
+          end(endTagMatch[1]); // 2 解析结束标签
+
           continue;
         }
       }
@@ -248,7 +292,7 @@
 
       if (text) {
         advance(text.length);
-        chars(text);
+        chars(text); // 3 解析文本
       }
     }
 
@@ -285,10 +329,15 @@
         }
       }
     }
+
+    return root;
   }
 
+  // ast语法树 是用对象来描述原生语法的
   function compileToFunction(template) {
+    // 1) 解析html字符串 将html字符串 => ast 语法树
     var root = parseHTML(template);
+    console.log('root', root);
     return function render() {};
   }
 
