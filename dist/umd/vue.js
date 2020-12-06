@@ -259,6 +259,28 @@
     observe(data); // 响应式处理
   }
 
+  function liefcycleMixin(Vue) {
+    Vue.prototype._update = function () {};
+  }
+  function mountComponent(vm, el) {
+    var options = vm.$options; // render
+
+    vm.$el = el; // 真实的dom元素
+    // Watcher 就是用来渲染的
+    // vm._render 通过解析的render方法 渲染出虚拟dom
+    // vm._update 通过虚拟dom 创建真实的dom
+    // 渲染页面
+
+    var updateComponent = function updateComponent() {
+      // 无论是渲染还是更新都会调用此方法
+      // 返回的是虚拟dom
+      vm._update(vm.render());
+    }; // 渲染watcher 每个组件都有一个watcher
+
+
+    new Watcher(vm, updateComponent, function () {}, true); // true 表示它是一个渲染watcher
+  }
+
   // ?: 匹配不捕获
   // arguments[0] = 匹配到的标签 arguments[1] 匹配到的标签名字
   var ncname = "[a-zA-Z_][\\-\\.0-9_a-zA-Z]*"; // abc-aaa
@@ -447,9 +469,10 @@
     // <div id="app"><p>hello {{name}}</p> hello</div>
     // 将ast树 再次转化成js的语法
     // _c("div",{id:app},_c("p",undefined,_v('hello' + _s(name))),_v('hello'))
+    // 所有的模板引擎实现 都需要new Function + with
 
-    console.log(code);
-    return function render() {};
+    var renderFn = new Function("with(this){ return ".concat(code, " }"));
+    return renderFn;
   }
 
   function initMixin(Vue) {
@@ -483,8 +506,16 @@
 
         var render = compileToFunction(template);
         options.render = render; // 我们需要将template 转化成 render方法
-      }
+      } // options.render
+      // 渲染当前组件 挂载这个组件
+
+
+      mountComponent(vm, el);
     };
+  }
+
+  function renderMixin(Vue) {
+    Vue.prototype._render = function () {};
   }
 
   function Vue(options) {
@@ -494,6 +525,9 @@
 
 
   initMixin(Vue); // 给Vue原型上添加一个_init方法
+
+  renderMixin(Vue);
+  liefcycleMixin(Vue);
 
   return Vue;
 

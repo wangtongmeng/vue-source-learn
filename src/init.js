@@ -1,5 +1,7 @@
 import {initState} from './state'
 
+import {mountComponent} from './lifecycle'
+
 import {compileToFunction} from './compiler/index.js'
 export function initMixin(Vue) {
     Vue.prototype._init = function (options) {
@@ -33,5 +35,8 @@ export function initMixin(Vue) {
             options.render = render
             // 我们需要将template 转化成 render方法
         }
+        // options.render
+        // 渲染当前组件 挂载这个组件
+        mountComponent(vm, el)
     }
 }
