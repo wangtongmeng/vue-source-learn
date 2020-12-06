@@ -1,4 +1,5 @@
 import {observe} from './observer/index'
+import {proxy} from './util/index'
 export function initState(vm) {
     const opts = vm.$options
     // vue的数据来源 属性 方法 数据 计算属性 watch
@@ -36,6 +37,9 @@ function initData(vm) {
 
     // Object.defineProperty() 给属性增加get方法和set方法
     // Object.defineProperty 不能兼容ie8及以下 vue2无法兼容ie8版本
+    for (let key in data) {
+        proxy(vm, '_data', key)
+    }
     observe(data) // 响应式处理
 }
 

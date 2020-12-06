@@ -149,6 +149,17 @@
       configurable: false,
       value: value
     });
+  } // 取值时实现代理效果
+
+  function proxy(vm, source, key) {
+    Object.defineProperty(vm, key, {
+      get: function get() {
+        return vm[source][key];
+      },
+      set: function set(newValue) {
+        vm[source][key] = newValue;
+      }
+    });
   }
 
   var Observer = /*#__PURE__*/function () {
@@ -240,6 +251,10 @@
     // MVVM模式 数据变化可以驱动视图变化
     // Object.defineProperty() 给属性增加get方法和set方法
     // Object.defineProperty 不能兼容ie8及以下 vue2无法兼容ie8版本
+
+    for (var key in data) {
+      proxy(vm, '_data', key);
+    }
 
     observe(data); // 响应式处理
   }
