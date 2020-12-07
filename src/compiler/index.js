@@ -54,11 +54,11 @@ function gen(node) {
 }
 function generate(el) {
     let children = genChildren(el)
-    let code = `_c("${el.tag}"),${
+    let code = `_c("${el.tag}",${
         el.attrs.length ? genProps(el.attrs) : 'undefined'
     }${
         children ? `,${children}` : ''
-    }
+    })
 
     `   
     return code
@@ -79,7 +79,6 @@ export function compileToFunction(template) {
 
     // 所有的模板引擎实现 都需要new Function + with
     let renderFn = new Function(`with(this){ return ${code} }`)
-    console.log(renderFn)
     return renderFn
 }
 
