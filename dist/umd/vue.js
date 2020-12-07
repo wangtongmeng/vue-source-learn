@@ -259,22 +259,106 @@
     observe(data); // 响应式处理
   }
 
+  var Watcher = /*#__PURE__*/function () {
+    function Watcher(vm, exprOrFn, callback, options) {
+      _classCallCheck(this, Watcher);
+
+      this.vm = vm;
+      this.exprOrFn = exprOrFn;
+      this.options = options;
+      this.getter = exprOrFn; // 将内部传过来的回调函数 放到getter属性上
+
+      this.get();
+    }
+
+    _createClass(Watcher, [{
+      key: "get",
+      value: function get() {
+        this.getter();
+      }
+    }]);
+
+    return Watcher;
+  }();
+
+  function patch(oldVnode, vnode) {
+    // 1.判断是更新还是渲染
+    var isRealElement = oldVnode.nodeType;
+
+    if (isRealElement) {
+      var oldElm = oldVnode; // div id="app"
+
+      var parentElm = oldElm.parentNode; // body
+
+      var el = createElm(vnode);
+      parentElm.insertBefore(el, oldElm.nextSibling);
+      parentElm.removeChild(oldElm);
+    } // 递归创建真实节点 替换掉老的节点
+
+  }
+
+  function createElm(vnode) {
+    // 根据虚拟节点创建真实的节点
+    var tag = vnode.tag,
+        children = vnode.children,
+        key = vnode.key,
+        data = vnode.data,
+        text = vnode.text; // 是标签就创建标签
+
+    if (typeof tag === 'string') {
+      vnode.el = document.createElement(tag);
+      updateProperties(vnode);
+      children.forEach(function (child) {
+        // 递归创建儿子节点，将儿子节点扔到父节点中
+        return vnode.el.appendChild(createElm(child));
+      });
+    } else {
+      // 如果不是标签就是文本
+      // 虚拟dom上映射着真实dom 方便后续更新操作
+      vnode.el = document.createTextNode(text);
+    }
+
+    return vnode.el;
+  } // 更新属性
+
+
+  function updateProperties(vnode) {
+    var newProps = vnode.data;
+    var el = vnode.el;
+
+    for (var key in newProps) {
+      if (key === 'style') {
+        for (var styleName in newProps.style) {
+          el.style[styleName] = newProps.style[styleName];
+        }
+      } else if (key === 'class') {
+        el.className = newProps["class"];
+      } else {
+        el.setAttribute(key, newProps[key]);
+      }
+    }
+  }
+
   function liefcycleMixin(Vue) {
-    Vue.prototype._update = function () {};
+    Vue.prototype._update = function (vnode) {
+      var vm = this; // 通过虚拟节点 渲染出真实的dom
+
+      vm.$el = patch(vm.$el, vnode); // 需要用虚拟节点创建出真实节点 替换掉 真实的$el
+    };
   }
   function mountComponent(vm, el) {
     var options = vm.$options; // render
 
     vm.$el = el; // 真实的dom元素
     // Watcher 就是用来渲染的
-    // vm._render 通过解析的render方法 渲染出虚拟dom
+    // vm._render 通过解析的render方法 渲染出虚拟dom _c _v _s
     // vm._update 通过虚拟dom 创建真实的dom
     // 渲染页面
 
     var updateComponent = function updateComponent() {
       // 无论是渲染还是更新都会调用此方法
       // 返回的是虚拟dom
-      vm._update(vm.render());
+      vm._update(vm._render());
     }; // 渲染watcher 每个组件都有一个watcher
 
 
@@ -426,6 +510,8 @@
     return root;
   }
 
+  var defaultTagRE = /\{\{((?:.|\r?\n)+?)\}\}/g;
+
   function genProps(attrs) {
     // 处理属性 拼接成属性的字符串
     // [{name: 'id',value: 'app'},...]
@@ -456,8 +542,51 @@
     return "{".concat(str.slice(0, -1), "}");
   }
 
+  function genChildren(el) {
+    var children = el.children;
+
+    if (children && children.length > 0) {
+      return "".concat(children.map(function (c) {
+        return gen(c);
+      }).join(','));
+    } else {
+      return false;
+    }
+  }
+
+  function gen(node) {
+    if (node.type == 1) {
+      // 元素标签
+      return generate(node);
+    } else {
+      var text = node.text; // a {{name}} b{{age}} c => _v("a"+_s(name)+"b"+_s(age)+"c")
+
+      var tokens = [];
+      var match, index;
+      var lastIndex = defaultTagRE.lastIndex = 0; // 只要是全局匹配 就需要将lastIndex每次匹配的时候调到0处
+
+      while (match = defaultTagRE.exec(text)) {
+        index = match.index;
+
+        if (index > lastIndex) {
+          tokens.push(JSON.stringify(text.slice(lastIndex, index)));
+        }
+
+        tokens.push("_s(".concat(match[1].trim(), ")"));
+        lastIndex = index + match[0].length;
+      }
+
+      if (lastIndex < text.length) {
+        tokens.push(JSON.stringify(text.slice(lastIndex)));
+      }
+
+      return "_v(".concat(tokens.join('+'), ")");
+    }
+  }
+
   function generate(el) {
-    var code = "_c(\"".concat(el.tag, "\"),").concat(el.attrs.length ? genProps(el.attrs) : 'undefined', "\n\n    ");
+    var children = genChildren(el);
+    var code = "_c(\"".concat(el.tag, "\",").concat(el.attrs.length ? genProps(el.attrs) : 'undefined').concat(children ? ",".concat(children) : '', ")\n\n    ");
     return code;
   }
 
@@ -514,8 +643,66 @@
     };
   }
 
+  function createElement(tag) {
+    var data = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+    var key = data.key;
+
+    if (key) {
+      delete data.key;
+    }
+
+    for (var _len = arguments.length, children = new Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) {
+      children[_key - 2] = arguments[_key];
+    }
+
+    return vnode(tag, data, key, children, undefined);
+  }
+  function createTextNode(text) {
+    return vnode(undefined, undefined, undefined, undefined, text);
+  }
+
+  function vnode(tag, data, key, children, text) {
+    return {
+      tag: tag,
+      data: data,
+      key: key,
+      children: children,
+      text: text
+    };
+  } // 虚拟节点 就是通过 _c _v 实现用对象来描述dom的操作（对象）
+  // 将tempalte转换成asts语法树 -> 生成render方法 -> 生成虚拟dom -> 真实dom
+  // 重新生成虚拟dom -> 更新dom
+  // {
+  //     tag: 'div',
+  //     key: undefined,
+  //     data: {},
+  //     children: [],
+  //     text: undefined
+  // }
+
   function renderMixin(Vue) {
-    Vue.prototype._render = function () {};
+    Vue.prototype._c = function () {
+      return createElement.apply(void 0, arguments); // tag,data,children1,children2
+    };
+
+    Vue.prototype._v = function (text) {
+      return createTextNode(text);
+    };
+
+    Vue.prototype._s = function (val) {
+      return val == null ? '' : _typeof(val) === 'object' ? JSON.stringify(val) : val;
+    };
+
+    Vue.prototype._render = function () {
+      // _c 创建元素的虚拟节点
+      // _v 创建文本的虚拟节点
+      // _s JSON.stringify
+      var vm = this;
+      var render = vm.$options.render;
+      var vnode = render.call(vm); // 去实例上取值
+
+      return vnode;
+    };
   }
 
   function Vue(options) {
