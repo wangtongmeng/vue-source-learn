@@ -41,6 +41,8 @@ class Observer {
 function defineReactive(data, key, value) {
     observe(value) // 递归实现深度监测（数据越深，递归越多，从而导致性能浪费，所以写代码时，层级不要太多）
     Object.defineProperty(data, key, {
+        configurable: true,
+        enumerable: true,
         get() { // 获取值时做一些操作
             return value
         },

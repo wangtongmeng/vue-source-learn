@@ -9,6 +9,9 @@ export function patch(oldVnode, vnode) {
         parentElm.insertBefore(el, oldElm.nextSibling)
 
         parentElm.removeChild(oldElm)
+
+        // 需要将渲染好的结果返回
+        return el
     }
     // 递归创建真实节点 替换掉老的节点
 }

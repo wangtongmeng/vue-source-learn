@@ -42,6 +42,55 @@
     return Constructor;
   }
 
+  function _defineProperty(obj, key, value) {
+    if (key in obj) {
+      Object.defineProperty(obj, key, {
+        value: value,
+        enumerable: true,
+        configurable: true,
+        writable: true
+      });
+    } else {
+      obj[key] = value;
+    }
+
+    return obj;
+  }
+
+  function ownKeys(object, enumerableOnly) {
+    var keys = Object.keys(object);
+
+    if (Object.getOwnPropertySymbols) {
+      var symbols = Object.getOwnPropertySymbols(object);
+      if (enumerableOnly) symbols = symbols.filter(function (sym) {
+        return Object.getOwnPropertyDescriptor(object, sym).enumerable;
+      });
+      keys.push.apply(keys, symbols);
+    }
+
+    return keys;
+  }
+
+  function _objectSpread2(target) {
+    for (var i = 1; i < arguments.length; i++) {
+      var source = arguments[i] != null ? arguments[i] : {};
+
+      if (i % 2) {
+        ownKeys(Object(source), true).forEach(function (key) {
+          _defineProperty(target, key, source[key]);
+        });
+      } else if (Object.getOwnPropertyDescriptors) {
+        Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
+      } else {
+        ownKeys(Object(source)).forEach(function (key) {
+          Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+        });
+      }
+    }
+
+    return target;
+  }
+
   function _slicedToArray(arr, i) {
     return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _unsupportedIterableToArray(arr, i) || _nonIterableRest();
   }
@@ -161,6 +210,55 @@
       }
     });
   }
+  var LIFECYCLE_HOOKS = ['beforeCreate', 'created', 'beforeMount', 'mounted', 'beforeUpdate', 'updated', 'beforeDestroy', 'destroyed'];
+  var strats = {};
+
+  function mergeHook(parentVal, childVal) {
+    if (childVal) {
+      if (parentVal) {
+        return parentVal.concat(childVal);
+      } else {
+        return [childVal];
+      }
+    } else {
+      return parentVal;
+    }
+  }
+
+  LIFECYCLE_HOOKS.forEach(function (hook) {
+    strats[hook] = mergeHook;
+  });
+  function mergeOptions(parent, child) {
+    var options = {};
+
+    for (var key in parent) {
+      mergeField(key);
+    }
+
+    for (var _key in child) {
+      // 如果已经合并了就不需要再次合并了
+      if (!parent.hasOwnProperty(_key)) {
+        mergeField(_key);
+      }
+    } // 默认的合并策略 但是有些属性 需要有特殊的合并方式 声明周期的合并
+
+
+    function mergeField(key) {
+      if (strats[key]) {
+        return options[key] = strats[key](parent[key], child[key]);
+      }
+
+      if (_typeof(parent[key]) === 'object' && _typeof(child[key]) === 'object') {
+        options[key] = _objectSpread2(_objectSpread2({}, parent[key]), child[key]);
+      } else if (child[key] == null) {
+        options[key] = parent[key];
+      } else {
+        options[key] = child[key];
+      }
+    }
+
+    return options;
+  }
 
   var Observer = /*#__PURE__*/function () {
     function Observer(value) {
@@ -206,6 +304,8 @@
     observe(value); // 递归实现深度监测（数据越深，递归越多，从而导致性能浪费，所以写代码时，层级不要太多）
 
     Object.defineProperty(data, key, {
+      configurable: true,
+      enumerable: true,
       get: function get() {
         // 获取值时做一些操作
         return value;
@@ -292,7 +392,9 @@
 
       var el = createElm(vnode);
       parentElm.insertBefore(el, oldElm.nextSibling);
-      parentElm.removeChild(oldElm);
+      parentElm.removeChild(oldElm); // 需要将渲染好的结果返回
+
+      return el;
     } // 递归创建真实节点 替换掉老的节点
 
   }
@@ -353,7 +455,8 @@
     // Watcher 就是用来渲染的
     // vm._render 通过解析的render方法 渲染出虚拟dom _c _v _s
     // vm._update 通过虚拟dom 创建真实的dom
-    // 渲染页面
+
+    callHook(vm, 'beforeMount'); // 渲染页面
 
     var updateComponent = function updateComponent() {
       // 无论是渲染还是更新都会调用此方法
@@ -363,6 +466,18 @@
 
 
     new Watcher(vm, updateComponent, function () {}, true); // true 表示它是一个渲染watcher
+
+    callHook(vm, 'mounted');
+  }
+  function callHook(vm, hook) {
+    var handlers = vm.$options[hook]; // [fn,fn,fn]
+
+    if (handlers) {
+      // 找到对应的钩子 依次执行
+      for (var i = 0; i < handlers.length; i++) {
+        handlers[i].call(vm);
+      }
+    }
   }
 
   // ?: 匹配不捕获
@@ -590,6 +705,7 @@
     return code;
   }
 
+  // ast语法树 是用对象来描述原生语法的
   function compileToFunction(template) {
     // 1) 解析html字符串 将html字符串 => ast 语法树
     var root = parseHTML(template); // 需要将ast语法树生成最终的render函数 就是字符串拼接（模板引擎）
@@ -608,11 +724,15 @@
     Vue.prototype._init = function (options) {
       // 数据劫持
       var vm = this; // vue中使用 this.$options 指代的就是用户传递的属性
+      // 将用户传递的 和全局的options合并
 
-      vm.$options = options; // 初始化状态
+      vm.$options = mergeOptions(vm.constructor.options, options);
+      console.log(vm.$options);
+      callHook(vm, 'beforeCreate'); // 初始化状态
 
       initState(vm); // 分割代码
-      // 如果用户传入了el属性 需要将页面渲染出来
+
+      callHook(vm, 'created'); // 如果用户传入了el属性 需要将页面渲染出来
       // 如果用户传入了el 就要实现挂载流程
 
       if (vm.$options.el) {
@@ -705,6 +825,31 @@
     };
   }
 
+  function initGlobalAPI(Vue) {
+    // 整合了所有的全局相关的内容
+    Vue.options = {};
+
+    Vue.mixin = function (mixin) {
+      // 如何实现两个对象的合并
+      this.options = mergeOptions(this.options, mixin);
+    }; // 生命周期的合并策略 [beforeCreate, beforeCreate]
+
+
+    Vue.mixin({
+      a: 1,
+      beforeCreate: function beforeCreate() {
+        console.log('mixin 1');
+      }
+    });
+    Vue.mixin({
+      b: 2,
+      beforeCreate: function beforeCreate() {
+        console.log('mixin 2');
+      }
+    });
+    console.log(Vue.options);
+  }
+
   function Vue(options) {
     // 进行Vue的初始化操作
     this._init(options);
@@ -714,7 +859,9 @@
   initMixin(Vue); // 给Vue原型上添加一个_init方法
 
   renderMixin(Vue);
-  liefcycleMixin(Vue);
+  liefcycleMixin(Vue); // 初始化全局api
+
+  initGlobalAPI(Vue);
 
   return Vue;
 

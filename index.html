@@ -24,8 +24,21 @@
             data() {
                 return {
                     name: 'zhangsan',
-                    age: 11
+                    // age: {age: 100},
+                    age: 100
                 }
+            },
+            beforeCreate() {
+                console.log('beforeCreate',  this.age)
+            },
+            created(){
+                console.log('created', this.age, this.$el)
+            },
+            beforeMount() {
+                console.log(this.$el, '渲染前')
+            },
+            mounted() {
+                console.log(this.$el, '渲染后')
             },
             computed() {},
             watch() {}

@@ -1,16 +1,25 @@
 import {initState} from './state'
 
-import {mountComponent} from './lifecycle'
+import {mountComponent, callHook} from './lifecycle'
 
 import {compileToFunction} from './compiler/index.js'
+
+import {mergeOptions} from './util/index'
 export function initMixin(Vue) {
     Vue.prototype._init = function (options) {
         // 数据劫持
         const vm = this // vue中使用 this.$options 指代的就是用户传递的属性
-        vm.$options = options
+
+        // 将用户传递的 和全局的options合并
+        vm.$options =  mergeOptions(vm.constructor.options, options)
+        console.log(vm.$options)
+
+        callHook(vm, 'beforeCreate')
 
         // 初始化状态
         initState(vm) // 分割代码
+
+        callHook(vm, 'created')
 
         // 如果用户传入了el属性 需要将页面渲染出来
         // 如果用户传入了el 就要实现挂载流程
