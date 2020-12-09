@@ -260,6 +260,44 @@
     return options;
   }
 
+  var id = 0;
+
+  var Dep = /*#__PURE__*/function () {
+    function Dep() {
+      _classCallCheck(this, Dep);
+
+      this.id = id++;
+      this.subs = []; // age: [watcher, watcher]
+    }
+
+    _createClass(Dep, [{
+      key: "depend",
+      value: function depend() {
+        this.subs.push(Dep.target); // 观察者模式
+      }
+    }, {
+      key: "notify",
+      value: function notify() {
+        this.subs.forEach(function (watcher) {
+          return watcher.update();
+        });
+      }
+    }]);
+
+    return Dep;
+  }();
+
+  var stack = []; // 目前可以做到 将watcher保留起来 和 移除的功能
+
+  function pushTarget(watcher) {
+    Dep.target = watcher;
+    stack.push(watcher);
+  }
+  function popTarget(watcher) {
+    stack.pop();
+    Dep.target = stack[stack.length - 1];
+  }
+
   var Observer = /*#__PURE__*/function () {
     function Observer(value) {
       _classCallCheck(this, Observer);
@@ -301,6 +339,7 @@
   }();
 
   function defineReactive(data, key, value) {
+    var dep = new Dep();
     observe(value); // 递归实现深度监测（数据越深，递归越多，从而导致性能浪费，所以写代码时，层级不要太多）
 
     Object.defineProperty(data, key, {
@@ -308,6 +347,13 @@
       enumerable: true,
       get: function get() {
         // 获取值时做一些操作
+        console.log('取值'); // 每个属性都对应着自己的watcher
+
+        if (Dep.target) {
+          // 如果当前有watcher
+          dep.depend(); // 意味着我要将watcher存起来
+        }
+
         return value;
       },
       set: function set(newValue) {
@@ -317,6 +363,7 @@
         observe(newValue); // 继续劫持用户设置的值，因为有可能用户设置的值是一个对象
 
         value = newValue;
+        dep.notify(); // 通知依赖的watcher来进行一个更新操作
       }
     });
   }
@@ -359,6 +406,8 @@
     observe(data); // 响应式处理
   }
 
+  var id$1 = 0;
+
   var Watcher = /*#__PURE__*/function () {
     function Watcher(vm, exprOrFn, callback, options) {
       _classCallCheck(this, Watcher);
@@ -366,15 +415,25 @@
       this.vm = vm;
       this.exprOrFn = exprOrFn;
       this.options = options;
+      this.id = id$1++;
       this.getter = exprOrFn; // 将内部传过来的回调函数 放到getter属性上
 
-      this.get();
+      this.get(); // 调用get方法 会让渲染watcher执行
     }
 
     _createClass(Watcher, [{
       key: "get",
       value: function get() {
-        this.getter();
+        pushTarget(this); // 把watcher存起来 Dep.target
+
+        this.getter(); // 渲染watcher执行
+
+        popTarget(); // 移除watcher
+      }
+    }, {
+      key: "update",
+      value: function update() {
+        this.get();
       }
     }]);
 
@@ -497,7 +556,7 @@
 
   var currentParent; // 标识当前父亲是谁
 
-  var stack = []; // <div><p><span></span></p></div>
+  var stack$1 = []; // <div><p><span></span></p></div>
   // [div] => [div, p] => [div, p, span] => [div, p] => [div] => [] => 空 开始标签与结束标签匹配
 
   var ELEMENT_TYPE = 1;
@@ -523,16 +582,16 @@
 
     currentParent = element; // 把当前元素标记成父ast树
 
-    stack.push(element); // 将开始元素存放到栈中
+    stack$1.push(element); // 将开始元素存放到栈中
   } // <div><p></p></div> [div, p] => [div] p
 
 
   function end(tagName) {
     // 复杂节点这里没有处理，例如注释、doctype节点，只处理核心逻辑
-    var element = stack.pop(); // 拿到的是ast对象
+    var element = stack$1.pop(); // 拿到的是ast对象
     // 标识当前p的父亲是div
 
-    currentParent = stack[stack.length - 1];
+    currentParent = stack$1[stack$1.length - 1];
 
     if (currentParent) {
       element.parent = currentParent;
@@ -834,20 +893,6 @@
       this.options = mergeOptions(this.options, mixin);
     }; // 生命周期的合并策略 [beforeCreate, beforeCreate]
 
-
-    Vue.mixin({
-      a: 1,
-      beforeCreate: function beforeCreate() {
-        console.log('mixin 1');
-      }
-    });
-    Vue.mixin({
-      b: 2,
-      beforeCreate: function beforeCreate() {
-        console.log('mixin 2');
-      }
-    });
-    console.log(Vue.options);
   }
 
   function Vue(options) {

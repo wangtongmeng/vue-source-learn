@@ -6,6 +6,7 @@ import {
     isObject,
     def
 } from '../util/index'
+import Dep from './dep.js'
 
 class Observer {
     constructor(value) {
@@ -39,11 +40,16 @@ class Observer {
 }
 
 function defineReactive(data, key, value) {
+    let dep = new Dep()
     observe(value) // 递归实现深度监测（数据越深，递归越多，从而导致性能浪费，所以写代码时，层级不要太多）
     Object.defineProperty(data, key, {
         configurable: true,
         enumerable: true,
         get() { // 获取值时做一些操作
+            console.log('取值') // 每个属性都对应着自己的watcher
+            if (Dep.target) { // 如果当前有watcher
+                dep.depend() // 意味着我要将watcher存起来
+            }
             return value
         },
         set(newValue) { // 设置值时也可以做一些操作
@@ -51,6 +57,7 @@ function defineReactive(data, key, value) {
             if (newValue === value) return
             observe(newValue) // 继续劫持用户设置的值，因为有可能用户设置的值是一个对象
             value = newValue
+            dep.notify() // 通知依赖的watcher来进行一个更新操作
         }
     })
 
