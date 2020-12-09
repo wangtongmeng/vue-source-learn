@@ -49,11 +49,13 @@ function defineReactive(data, key, value) {
             console.log('取值') // 每个属性都对应着自己的watcher
             if (Dep.target) { // 如果当前有watcher
                 dep.depend() // 意味着我要将watcher存起来
+
+                console.log(dep.subs)
             }
             return value
         },
         set(newValue) { // 设置值时也可以做一些操作
-            console.log('更新')
+            // console.log('更新')
             if (newValue === value) return
             observe(newValue) // 继续劫持用户设置的值，因为有可能用户设置的值是一个对象
             value = newValue

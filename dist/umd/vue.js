@@ -271,9 +271,15 @@
     }
 
     _createClass(Dep, [{
+      key: "addSub",
+      value: function addSub(watcher) {
+        this.subs.push(watcher); // 观察者模式
+      }
+    }, {
       key: "depend",
       value: function depend() {
-        this.subs.push(Dep.target); // 观察者模式
+        // 让这个watcher 记住当前的dep，如果watcher没存过Dep，dep肯定不能存watcher
+        Dep.target.addDep(this);
       }
     }, {
       key: "notify",
@@ -352,13 +358,15 @@
         if (Dep.target) {
           // 如果当前有watcher
           dep.depend(); // 意味着我要将watcher存起来
+
+          console.log(dep.subs);
         }
 
         return value;
       },
       set: function set(newValue) {
         // 设置值时也可以做一些操作
-        console.log('更新');
+        // console.log('更新')
         if (newValue === value) return;
         observe(newValue); // 继续劫持用户设置的值，因为有可能用户设置的值是一个对象
 
@@ -418,10 +426,25 @@
       this.id = id$1++;
       this.getter = exprOrFn; // 将内部传过来的回调函数 放到getter属性上
 
+      this.depsId = new Set(); // es6中的集合（不能放重复项）
+
+      this.deps = [];
       this.get(); // 调用get方法 会让渲染watcher执行
     }
 
     _createClass(Watcher, [{
+      key: "addDep",
+      value: function addDep(dep) {
+        // watcher 里不能放重复的dep dep里不能放重复的watcher
+        var id = dep.id;
+
+        if (!this.depsId.has(id)) {
+          this.depsId.add(id);
+          this.deps.push(dep);
+          dep.addSub(this);
+        }
+      }
+    }, {
       key: "get",
       value: function get() {
         pushTarget(this); // 把watcher存起来 Dep.target
