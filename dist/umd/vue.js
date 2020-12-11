@@ -181,6 +181,8 @@
 
       if (inserted) ob.observerArray(inserted); // 将新增属性继续观测
 
+      ob.dep.notify(); // 如果用户调用了 上述方法 我会通知当前这个dep去更新
+
       return result;
     };
   });
@@ -308,8 +310,10 @@
     function Observer(value) {
       _classCallCheck(this, Observer);
 
+      this.dep = new Dep(); // 给数组用的
       // vue 如果数据的层次过多 需要递归的解析对象中的属性，依次增加set和get方法
       // value.__ob__ = this // 我给每一个监控过的对象都增加一个__ob__属性，由于__ob__也是对象所以会递归观测，导致observerArray重复调用，造成死循环
+
       def(value, '__ob__', this);
 
       if (Array.isArray(value)) {
@@ -318,7 +322,7 @@
         // 重写数组方法
         value.__proto__ = arrayMethods; // 如果数组里放的是对象再进行监控
 
-        this.observerArray(value);
+        this.observerArray(value); // 这里虽然递归了 但是没有依赖收集
       } else {
         this.walk(value);
       }
@@ -345,8 +349,10 @@
   }();
 
   function defineReactive(data, key, value) {
-    var dep = new Dep();
-    observe(value); // 递归实现深度监测（数据越深，递归越多，从而导致性能浪费，所以写代码时，层级不要太多）
+    var dep = new Dep(); // 这个dep 是为了给对象使用的
+    // 这里的value可能是数组 也可能是对象，返回的结果是observer的实例，当前这个value对象的observer
+
+    var childOb = observe(value); // 递归实现深度监测（数据越深，递归越多，从而导致性能浪费，所以写代码时，层级不要太多）
 
     Object.defineProperty(data, key, {
       configurable: true,
@@ -359,7 +365,16 @@
           // 如果当前有watcher
           dep.depend(); // 意味着我要将watcher存起来
 
-          console.log(dep.subs);
+          if (childOb) {
+            console.log(childOb); // 数组的依赖收集
+
+            childOb.dep.depend(); // 收集数组的依赖
+            // 如果数组中还有数组
+
+            if (Array.isArray(value)) {
+              dependArray(value);
+            }
+          }
         }
 
         return value;
@@ -374,6 +389,19 @@
         dep.notify(); // 通知依赖的watcher来进行一个更新操作
       }
     });
+  }
+
+  function dependArray(value) {
+    for (var i = 0; i < value.length; i++) {
+      var current = value[i]; // 将数组中的每一个都取出来，数据变化后 也去更新视图
+      // 数组中的数组的依赖收集
+
+      current.__ob__ && current.__ob__.dep.depend();
+
+      if (Array.isArray(current)) {
+        dependArray(current);
+      }
+    }
   }
 
   function observe(data) {

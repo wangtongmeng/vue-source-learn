@@ -10,7 +10,7 @@
 <body>
     <!-- watcher 和 dep 的关系：一个watcher对应n个dep，一个dep对应n个watcher => 多对多 -->
     <div id="app" style="color: red;background:blue">
-        <p>{{age}}</p>
+        <p>{{arr}}</p>
     </div>
     <div>other dom</div>
     <script src="./dist/umd/vue.js"></script>
@@ -19,14 +19,14 @@
             el: '#app',
             data() {
                 return {
-                    name: 'zhangsan',
-                    age: {age: 100}, // 这里会造成两次取值效果
+                    arr: [[1,2,3]]
                 }
             },
         })
 
         setTimeout(() => {
-            vm.age = 1000 // 依赖收集
+            // vm.arr.push(4,5,6)
+            vm.arr[0].push(4,5,6)
             // vm._update(vm._render())
             // 希望数据变化可以自动的重新执行我们的渲染watcher
         }, 1000);

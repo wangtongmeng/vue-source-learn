@@ -32,6 +32,8 @@ methods.forEach(method => {
                 break;
         }
         if (inserted) ob.observerArray(inserted) // 将新增属性继续观测
+
+        ob.dep.notify() // 如果用户调用了 上述方法 我会通知当前这个dep去更新
         return result
     }
 })
