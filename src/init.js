@@ -5,6 +5,7 @@ import {mountComponent, callHook} from './lifecycle'
 import {compileToFunction} from './compiler/index.js'
 
 import {mergeOptions} from './util/index'
+import {nextTick} from './util/next-tick'
 export function initMixin(Vue) {
     Vue.prototype._init = function (options) {
         // 数据劫持
@@ -48,4 +49,6 @@ export function initMixin(Vue) {
         // 渲染当前组件 挂载这个组件
         mountComponent(vm, el)
     }
+    // 用户调用的nextTick
+    Vue.prototype.$nextTick = nextTick // 注册nextTick
 }

@@ -1,4 +1,5 @@
 import {pushTarget, popTarget} from './dep.js'
+import {queueWatcher} from './schedular'
 let id = 0
 class Watcher {
     constructor (vm, exprOrFn, callback, options) {
@@ -25,6 +26,12 @@ class Watcher {
         popTarget() // 移除watcher
     }
     update(){
+        // 等待着 一起更新 因为每次掉色update时 都放入了watcher
+        queueWatcher(this)
+
+        // this.get()
+    }
+    run(){
         this.get()
     }
 }
